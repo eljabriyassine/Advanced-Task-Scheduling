@@ -1,5 +1,4 @@
-// Import the tasks and developers from the data module
-const { tasks, developers } = require("./data");
+const { developers, tasks } = require("./data");
 
 function assignTasksWithPriorityAndDependencies(developers, tasks) {
   // Initialize the result array and a map to track assigned hours per developer
@@ -16,36 +15,25 @@ function assignTasksWithPriorityAndDependencies(developers, tasks) {
     return task.dependencies.every((dep) => completedTasks.has(dep));
   }
 
-  // Step 2: Sort tasks by priority (high to low) and then by difficulty (low to high)
   const sortedTasks = tasks.sort((a, b) => {
+    // Check if either task has dependencies
+    const aHasDependencies = a.dependencies.length > 0;
+    const bHasDependencies = b.dependencies.length > 0;
+
+    // If task a has dependencies and task b does not, task b should come first
+    if (aHasDependencies && !bHasDependencies) return 1;
+
+    // If task b has dependencies and task a does not, task a should come first
+    if (!aHasDependencies && bHasDependencies) return -1;
+
     if (b.priority === a.priority) {
       return a.difficulty - b.difficulty; // lower difficulty first
     }
+
     return b.priority - a.priority; // higher priority first
   });
 
   // Assign tasks to developers
-  assignTasksToDevelopers(
-    sortedTasks,
-    developerTasks,
-    unassignedTasks,
-    completedTasks,
-    canAssignTask
-  );
-
-  return {
-    developers: developerTasks,
-    unassignedTasks: unassignedTasks,
-  };
-}
-
-function assignTasksToDevelopers(
-  sortedTasks,
-  developerTasks,
-  unassignedTasks,
-  completedTasks,
-  canAssignTask
-) {
   for (const task of sortedTasks) {
     if (!canAssignTask(task)) {
       // If dependencies are not met, add task to unassigned list
@@ -56,7 +44,7 @@ function assignTasksToDevelopers(
     // Find a suitable developer
     const suitableDeveloper = developerTasks.find(
       (dev) =>
-        dev.maxHours >= task.hoursRequired &&
+        dev.maxHours - dev.totalHours >= task.hoursRequired &&
         dev.skillLevel >= task.difficulty &&
         dev.preferredTaskType === task.taskType
     );
@@ -65,13 +53,16 @@ function assignTasksToDevelopers(
       // Assign task to the developer
       suitableDeveloper.assignedTasks.push(task.taskName);
       suitableDeveloper.totalHours += task.hoursRequired;
-      suitableDeveloper.maxHours -= task.hoursRequired;
       completedTasks.add(task.taskName); // Mark task as completed
     } else {
       // If no suitable developer found, add task to unassigned list
       unassignedTasks.push(task);
     }
   }
+  return {
+    developers: developerTasks,
+    unassignedTasks: unassignedTasks,
+  };
 }
 
 // Call the function and log the result
